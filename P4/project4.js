@@ -41,7 +41,26 @@ class MeshDrawer
 	// The constructor is a good place for taking care of the necessary initializations.
 	constructor()
 	{
-		// [TO-DO] initializations
+		// initializations
+		this.prog = InitShaderProgram( meshVS, meshFS );
+		
+		// Get the ids of the uniform variables in the shaders
+		this.mvp = gl.getUniformLocation( this.prog, 'mvp' );
+		this.sampler = gl.getUniformLocation( this.prog, 'tex');
+		
+		// Get the ids of the vertex attributes in the shaders
+		this.vertPos = gl.getAttribLocation( this.prog, 'pos' );
+		this.txcPos = gl.getAttribLocation( this.prog, 'txc');
+		// create buffers
+		this.vertPosBuffer = gl.createBuffer();
+		this.texCoordsBuffer = gl.createBuffer();
+
+		// create texture
+		this.texture = gl.createTexture();
+		
+		gl.useProgram(this.prog);
+
+		
 	}
 	
 	// This method is called every time the user opens an OBJ file.
@@ -56,8 +75,14 @@ class MeshDrawer
 	// Note that this method can be called multiple times.
 	setMesh( vertPos, texCoords )
 	{
-		// [TO-DO] Update the contents of the vertex buffer objects.
+		// Update the contents of the vertex buffer objects.
 		this.numTriangles = vertPos.length / 3;
+		// 把vertPos写入buffer
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertPosBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertPos), gl.STATIC_DRAW );
+		// 把texCoords写入buffer
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordsBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW );
 	}
 	
 	// This method is called when the user changes the state of the
@@ -73,7 +98,20 @@ class MeshDrawer
 	// by the GetModelViewProjection function above.
 	draw( trans )
 	{
-		// [TO-DO] Complete the WebGL initializations before drawing
+		// Complete the WebGL initializations before drawing
+
+		gl.useProgram(this.prog);
+		gl.uniformMatrix4fv( this.mvp, false, trans );
+
+		// 写vertPos到Attrib
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertPosBuffer);	
+		gl.vertexAttribPointer(this.vertPos,3,gl.FLOAT, false, 0, 0 );
+		gl.enableVertexAttribArray(this.vertPos);
+
+		// 写textCords到Attrib
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordsBuffer);
+		gl.vertexAttribPointer(this.txcPos, 2, gl.FLOAT, false, 0, 0 );
+		gl.enableVertexAttribArray(this.txcPos);
 
 		gl.drawArrays( gl.TRIANGLES, 0, this.numTriangles );
 	}
@@ -82,13 +120,22 @@ class MeshDrawer
 	// The argument is an HTML IMG element containing the texture data.
 	setTexture( img )
 	{
-		// [TO-DO] Bind the texture
+		// Bind the texture
+		gl.activeTexture(gl.TEXTURE0); // active unit0
+		gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
 		// You can set the texture image data using the following command.
 		gl.texImage2D( gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img );
+		gl.generateMipmap(gl.TEXTURE_2D);
 
-		// [TO-DO] Now that we have a texture, it might be a good idea to set
+		// Now that we have a texture, it might be a good idea to set
 		// some uniform parameter(s) of the fragment shader, so that it uses the texture.
+		// 可选参数
+		// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); // 线性插值
+		// gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); // 双线性插值
+		
+		gl.useProgram(this.prog);
+		gl.uniform1i(this.sampler,0);// use unit 0	
 	}
 	
 	// This method is called when the user changes the state of the
@@ -100,3 +147,30 @@ class MeshDrawer
 	}
 	
 }
+
+const glsl = (x)=>x;
+
+const meshVS = glsl`
+attribute vec3 pos;
+attribute vec2 txc;
+uniform mat4 mvp;
+varying vec2 texCoord;
+
+void main()
+{
+    gl_Position = mvp * vec4(pos,1);
+    texCoord = txc;
+}
+`
+
+const meshFS = glsl`
+precision mediump float;
+
+uniform sampler2D tex;
+varying vec2 texCoord;
+
+void main()
+{
+    gl_FragColor = texture2D(tex, texCoord);
+}
+`
