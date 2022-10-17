@@ -13,9 +13,9 @@ function GetModelViewProjection( projectionMatrix, translationX, translationY, t
 		0,0,0,1
 	];
 	const rotY = [
-		Math.cos( rotationY ),0, Math.sin( rotationY),0,
+		Math.cos( rotationY ),0, -Math.sin( rotationY),0,
 		0, 1, 0,0,
-		-Math.sin( rotationY ),0, Math.cos( rotationY),0,
+		Math.sin( rotationY ),0, Math.cos( rotationY),0,
 		0,0,0,1
 	]
 
@@ -34,7 +34,7 @@ function GetModelViewProjection( projectionMatrix, translationX, translationY, t
 }
 
 
-// [TO-DO] Complete the implementation of the following class.
+// Complete the implementation of the following class.
 
 class MeshDrawer
 {
@@ -46,7 +46,9 @@ class MeshDrawer
 		
 		// Get the ids of the uniform variables in the shaders
 		this.mvp = gl.getUniformLocation( this.prog, 'mvp' );
+		this.swap = gl.getUniformLocation( this.prog, 'swap');
 		this.sampler = gl.getUniformLocation( this.prog, 'tex');
+		this.showTexturePos = gl.getUniformLocation( this.prog, 'showTexture');
 		
 		// Get the ids of the vertex attributes in the shaders
 		this.vertPos = gl.getAttribLocation( this.prog, 'pos' );
@@ -58,9 +60,9 @@ class MeshDrawer
 		// create texture
 		this.texture = gl.createTexture();
 		
-		gl.useProgram(this.prog);
-
-		
+		// 几个功能的初始值
+		this.swapYZ( false); 
+		this.showTexture(true);
 	}
 	
 	// This method is called every time the user opens an OBJ file.
@@ -90,7 +92,24 @@ class MeshDrawer
 	// The argument is a boolean that indicates if the checkbox is checked.
 	swapYZ( swap )
 	{
-		// [TO-DO] Set the uniform parameter(s) of the vertex shader
+		// Set the uniform parameter(s) of the vertex shader
+		gl.useProgram( this.prog );
+		if(swap){
+			// 翻转
+			gl.uniformMatrix4fv( this.swap, false, new Float32Array(
+				[0,1,0,0,
+				1,0,0,0,
+				0,0,1,0,
+				0,0,0,1
+			]) );
+		}else{
+			gl.uniformMatrix4fv( this.swap, false, new Float32Array(
+				[1,0,0,0,
+				0,1,0,0,
+				0,0,1,0,
+				0,0,0,1
+			]) );
+		}
 	}
 	
 	// This method is called to draw the triangular mesh.
@@ -143,7 +162,9 @@ class MeshDrawer
 	// The argument is a boolean that indicates if the checkbox is checked.
 	showTexture( show )
 	{
-		// [TO-DO] set the uniform parameter(s) of the fragment shader to specify if it should use the texture.
+		// set the uniform parameter(s) of the fragment shader to specify if it should use the texture.
+		gl.useProgram( this.prog );
+		gl.uniform1i(this.showTexturePos,show);
 	}
 	
 }
@@ -154,23 +175,28 @@ const meshVS = glsl`
 attribute vec3 pos;
 attribute vec2 txc;
 uniform mat4 mvp;
+uniform mat4 swap;
 varying vec2 texCoord;
 
 void main()
 {
-    gl_Position = mvp * vec4(pos,1);
+    gl_Position = mvp*swap * vec4(pos,1);
     texCoord = txc;
 }
 `
 
 const meshFS = glsl`
 precision mediump float;
-
+uniform bool showTexture;
 uniform sampler2D tex;
 varying vec2 texCoord;
 
 void main()
 {
-    gl_FragColor = texture2D(tex, texCoord);
+	if(showTexture){
+	    gl_FragColor = texture2D(tex, texCoord);
+	}else{
+	    gl_FragColor = vec4(1,1,0,1);
+	}
 }
-`
+`;
