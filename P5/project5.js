@@ -44,13 +44,15 @@ class MeshDrawer
 		
 		// Get the ids of the uniform variables in the shaders
 		this.mvp = gl.getUniformLocation( this.prog, 'mvp' );
+		this.mv = gl.getUniformLocation( this.prog, 'mv' );
 		this.swap = gl.getUniformLocation( this.prog, 'swap');
 		this.sampler = gl.getUniformLocation( this.prog, 'tex');
 		this.showTexturePos = gl.getUniformLocation( this.prog, 'showTexture');
 		
 		this.lightDir = gl.getUniformLocation( this.prog, 'lightDir');
 		this.shininess = gl.getUniformLocation( this.prog, 'shininess');
-		this.camDir = gl.getUniformLocation( this.prog, 'camDir');
+		// this.camDir = gl.getUniformLocation( this.prog, 'camDir');
+		this.matrixNormalPos = gl.getUniformLocation( this.prog, 'matrixNormal');
 		
 		// Get the ids of the vertex attributes in the shaders
 		this.vertPos = gl.getAttribLocation( this.prog, 'pos' );
@@ -133,8 +135,11 @@ class MeshDrawer
 		
 		gl.useProgram(this.prog);
 		gl.uniformMatrix4fv( this.mvp, false, matrixMVP );
+		gl.uniformMatrix4fv( this.mv, false, matrixMV );
 
-		gl.uniform3fv( this.camDir,[matrixMV[2], matrixMV[6], matrixMV[8]]); // todo:???why
+		gl.uniformMatrix3fv(this.matrixNormalPos, false, matrixNormal);
+
+		// gl.uniform3fv( this.camDir,[matrixMV[2], matrixMV[6], matrixMV[8]]); // todo:???why
 
 		// 写vertPos到Attrib
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertPosBuffer);	
@@ -190,7 +195,7 @@ class MeshDrawer
 	{
 		// set the uniform parameter(s) of the fragment shader to specify the light direction.
 		gl.useProgram( this.prog);
-		gl.uniform3fv(this.lightDir, [x,y,z]); // todo:??向外
+		gl.uniform3fv(this.lightDir, [x,y,z]);
 	}
 	
 	// This method is called to set the shininess of the material
@@ -203,52 +208,64 @@ class MeshDrawer
 }
 
 const meshVS = /*glsl*/`
+precision mediump float;
 attribute vec3 pos;
 attribute vec2 txc;
 attribute vec3 normal;
-uniform mat4 mvp;
-uniform mat4 swap;
-varying vec2 texCoord;
-varying vec3 surfaceNormal;
 
-void main()
-{
-    gl_Position = mvp*swap * vec4(pos,1);
-    texCoord = txc;
-    surfaceNormal = normal;
+uniform mat4 mvp;
+uniform mat4 mv;
+uniform mat4 swap;
+uniform mat3 matrixNormal; // 法线变换矩阵
+
+varying vec2 vTexCoord;
+varying vec3 vPosition;
+varying vec3 vNormal;
+
+void main() {
+	gl_Position = mvp * swap * vec4(pos, 1);
+
+	vTexCoord = txc;
+	vNormal = matrixNormal * normal;
+	vPosition = vec3(mv * swap * vec4(pos, 1));
+
 }
 `
 
 const meshFS = /*glsl*/`
 precision mediump float;
 uniform bool showTexture;
+uniform mat4 mv;
 uniform sampler2D tex;
-
-uniform vec3 lightDir; // 光照
+uniform vec3 lightDir; // 光照方向，已经归一化了
 uniform float shininess; // 光洁度 
-uniform vec3 camDir; // 相机角度
 
-varying vec2 texCoord;
-varying vec3 surfaceNormal; // 法线
+varying vec2 vTexCoord;
+varying vec3 vNormal; // 法线
+varying vec3 vPosition;
 
 void main() {
-	vec4 difuss_color; // 材质颜色
-	vec4 white = vec4(1,1,1,1); // 光源颜色
-	if(showTexture) {
-		difuss_color = texture2D(tex, texCoord);
-	} else {
-		difuss_color = white;
-	}
+	vec3 norm = normalize(vNormal);
+	vec3 cameraPos = vec3(mv * vec4(vec3(0.0, 0.0, 1.0), 1.0)); // 相机位置
+	vec3 camDir = normalize(vPosition - cameraPos); // 相机方向
 	vec4 light_color = vec4(1.0, 1.0, 1.0, 1.0);
+	vec4 white = vec4(1, 1, 1, 1);
+	vec4 material_color; // 材质颜色
+	if(showTexture) {
+		material_color = texture2D(tex, vTexCoord);
+	} else {
+		material_color = white;
+	}
 
-	float costheta = dot(surfaceNormal, lightDir) / (length(surfaceNormal)* length(lightDir));
-	vec4 difuss_component = difuss_color * max(0.0,costheta);
-	
-	vec3 h = (lightDir + camDir) / length(lightDir+ camDir);
-	float cosphi = dot(surfaceNormal, h) / (length(surfaceNormal) * length(h));
-	vec4 sep_component = light_color * pow(max(0.0, cosphi), shininess);
+	float costheta = max(0.0, dot(norm, lightDir));
+	vec4 diffuse = light_color * material_color * costheta;
 
-	gl_FragColor = difuss_component + sep_component;
-	
+	vec3 h = normalize(lightDir + camDir);
+	float cosphi = max(0.0, dot(norm, h));
+	vec4 specular = light_color * pow(cosphi, shininess);
+
+	gl_FragColor = diffuse + specular;
 }
 `;
+
+// inspired by https://sourcegraph.com/github.com/photonstorm/phaser/-/blob/src/renderer/webgl/shaders/Mesh-frag.js?L44:35
