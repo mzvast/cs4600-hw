@@ -51,7 +51,7 @@ class MeshDrawer
 		
 		this.lightDir = gl.getUniformLocation( this.prog, 'lightDir');
 		this.shininess = gl.getUniformLocation( this.prog, 'shininess');
-		// this.camDir = gl.getUniformLocation( this.prog, 'camDir');
+		this.uCameraPos = gl.getUniformLocation( this.prog, 'uCameraPos');
 		this.matrixNormalPos = gl.getUniformLocation( this.prog, 'matrixNormal');
 		
 		// Get the ids of the vertex attributes in the shaders
@@ -139,7 +139,9 @@ class MeshDrawer
 
 		gl.uniformMatrix3fv(this.matrixNormalPos, false, matrixNormal);
 
-		// gl.uniform3fv( this.camDir,[matrixMV[2], matrixMV[6], matrixMV[8]]); // todo:???why
+		let mv =matrixMV;
+		// vec3(mv*vec4[0,0,1,1])
+		gl.uniform3fv( this.uCameraPos,new Float32Array([mv[8]+mv[12],mv[9]+mv[13],mv[10]+mv[14]]));
 
 		// 写vertPos到Attrib
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.vertPosBuffer);	
@@ -228,7 +230,6 @@ void main() {
 	vTexCoord = txc;
 	vNormal = matrixNormal * normal;
 	vPosition = vec3(mv * swap * vec4(pos, 1));
-
 }
 `
 
@@ -240,14 +241,15 @@ uniform sampler2D tex;
 uniform vec3 lightDir; // 光照方向，已经归一化了
 uniform float shininess; // 光洁度 
 
+uniform vec3 uCameraPos;// 相机位置
+
 varying vec2 vTexCoord;
 varying vec3 vNormal; // 法线
 varying vec3 vPosition;
 
 void main() {
 	vec3 norm = normalize(vNormal);
-	vec3 cameraPos = vec3(mv * vec4(vec3(0.0, 0.0, 1.0), 1.0)); // 相机位置
-	vec3 camDir = normalize(vPosition - cameraPos); // 相机方向
+	vec3 camDir = normalize(vPosition - uCameraPos); // 相机方向
 	vec4 light_color = vec4(1.0, 1.0, 1.0, 1.0);
 	vec4 white = vec4(1, 1, 1, 1);
 	vec4 material_color; // 材质颜色
