@@ -208,16 +208,59 @@ class MeshDrawer
 // This function is called for every step of the simulation.
 // Its job is to advance the simulation for the given time step duration dt.
 // It updates the given positions and velocities.
-function SimTimeStep( dt, positions, velocities, springs, stiffness, damping, particleMass, gravity, restitution )
+function SimTimeStep( dt, positions, velocities, springs, stiffness/**
+刚性 k */, damping /** 阻尼 */, particleMass /**粒子质量 */, gravity, restitution/**回复力 */)
 {
 	var forces = Array( positions.length ); // The total for per particle
 
-	// [TO-DO] Compute the total force of each particle
+	// Compute the total force of each particle
+	for(let i = 0; i < positions.length; i++){
+		const f = new Vec3(0,0,0);
+		forces[i] = f.add(gravity.mul(particleMass));
+	}
+
+	for(let spring of springs){
+		const {p0, p1, rest} = spring;
+		const x1_0 = positions[p1].sub(positions[p0]);
+		const l = x1_0.len();
+		const d = x1_0.div(l);
+		// 弹力
+		const fis = d.mul(stiffness * ( l - rest));
+
+		const dl = positions[p1].sub(positions[p0]).dot(d);
+		// 阻尼力
+		const fid = d.mul(damping * dl);
+
+		const totalForce = fis.add(fid);
+		forces[p0] = forces[p0].add(totalForce);
+		forces[p1] = forces[p1].sub(totalForce);
+	}
 	
-	// [TO-DO] Update positions and velocities
+	// Update positions and velocities
+	for(let i = 0; i < positions.length; i++){
+		const f = forces[i];
+		const a = f.div(particleMass);
+		velocities[i] = velocities[i].add(a.mul(dt));
+		positions[i] = positions[i].add(velocities[i].mul(dt));
+	}
 	
-	// [TO-DO] Handle collisions
-	
+	// Handle collisions
+	for(let i = 0; i < positions.length; i++){
+		const p = positions[i];
+
+		for(let dir of ['x','y','z']){
+			if(p[dir]>1){
+				positions[i][dir] += (p[dir] - 1)*restitution; // 位置
+				velocities[i][dir] = velocities[i][dir]*(-restitution);// 速度
+			}
+			if(p[dir]< -1){
+				positions[i][dir] += (-1 - p[dir])*restitution; // 位置
+				velocities[i][dir] = velocities[i][dir]*(-restitution);// 速度
+			}	
+		}
+		
+		
+	}
 }
 
 
@@ -281,3 +324,5 @@ void main() {
 	gl_FragColor = diffuse + specular;
 }
 `;
+
+// https://www.bilibili.com/video/BV1VU4y1f7xs?p=25&vd_source=9d351bd904b799992834e74b25cea9a9
