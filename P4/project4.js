@@ -97,9 +97,9 @@ class MeshDrawer
 		if(swap){
 			// 翻转
 			gl.uniformMatrix4fv( this.swap, false, new Float32Array(
-				[0,1,0,0,
-				1,0,0,0,
+				[1,0,0,0,
 				0,0,1,0,
+				0,1,0,0,
 				0,0,0,1
 			]) );
 		}else{
@@ -169,9 +169,8 @@ class MeshDrawer
 	
 }
 
-const glsl = (x)=>x;
 
-const meshVS = glsl`
+const meshVS = /*glsl*/`
 attribute vec3 pos;
 attribute vec2 txc;
 uniform mat4 mvp;
@@ -185,7 +184,7 @@ void main()
 }
 `
 
-const meshFS = glsl`
+const meshFS = /*glsl*/`
 precision mediump float;
 uniform bool showTexture;
 uniform sampler2D tex;

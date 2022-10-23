@@ -107,9 +107,9 @@ class MeshDrawer
 		if(swap){
 			// 翻转
 			gl.uniformMatrix4fv( this.swap, false, new Float32Array(
-				[0,1,0,0,
-				1,0,0,0,
+				[1,0,0,0,
 				0,0,1,0,
+				0,1,0,0,
 				0,0,0,1
 			]) );
 		}else{

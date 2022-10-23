@@ -108,11 +108,11 @@ class MeshDrawer
 		// Set the uniform parameter(s) of the vertex shader
 		gl.useProgram( this.prog );
 		if(swap){
-			// 翻转 todo: 这个公式不对吧
+			// 翻转
 			gl.uniformMatrix4fv( this.swap, false, new Float32Array(
-				[0,1,0,0,
-				1,0,0,0,
+				[1,0,0,0,
 				0,0,1,0,
+				0,1,0,0,
 				0,0,0,1
 			]) );
 		}else{
