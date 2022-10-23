@@ -240,8 +240,8 @@ function SimTimeStep( dt, positions, velocities, springs, stiffness/**
 	for(let i = 0; i < positions.length; i++){
 		const f = forces[i];
 		const a = f.div(particleMass);
-		velocities[i] = velocities[i].add(a.mul(dt));
-		positions[i] = positions[i].add(velocities[i].mul(dt));
+		velocities[i].set(velocities[i].add(a.mul(dt)));
+		positions[i].set(positions[i].add(velocities[i].mul(dt)));
 	}
 	
 	// Handle collisions
@@ -249,14 +249,17 @@ function SimTimeStep( dt, positions, velocities, springs, stiffness/**
 		const p = positions[i];
 
 		for(let dir of ['x','y','z']){
+			if(p[dir]>=-1&&p[dir]<=1) continue;
+			// 位置
 			if(p[dir]>1){
-				positions[i][dir] += (p[dir] - 1)*restitution; // 位置
-				velocities[i][dir] = velocities[i][dir]*(-restitution);// 速度
+				positions[i][dir] = positions[i][dir]-(p[dir] - 1)*restitution; 
 			}
 			if(p[dir]< -1){
-				positions[i][dir] += (-1 - p[dir])*restitution; // 位置
-				velocities[i][dir] = velocities[i][dir]*(-restitution);// 速度
+				positions[i][dir] = positions[i][dir]+(-1 - p[dir])*restitution
+				
 			}	
+			// 速度
+			velocities[i][dir] = velocities[i][dir]*(-restitution);
 		}
 		
 		
